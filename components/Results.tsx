@@ -5,6 +5,7 @@ import { scoreAtom } from "states/game";
 import styled from "styled-components";
 import { AnimatePresence, motion } from "framer-motion";
 import TrophySvg from "./TrophySvg";
+import Spinner from "./Spinner";
 
 interface ScoreRecord {
   id: string;
@@ -185,6 +186,7 @@ const getScoreText = (score: number) => {
 const Results: FC<ResultsProps> = ({ restart }) => {
   const score = useRecoilValue(scoreAtom);
   const [scores, setScores] = useState<ScoreRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [playerName, setPlayerName] = useState("");
   const [boardOn, setBoardOn] = useState(false);
   const [scoreInputOn, setScoreInputOn] = useState(false);
@@ -193,11 +195,11 @@ const Results: FC<ResultsProps> = ({ restart }) => {
   useEffect(() => {
     if (!boardOn) return;
 
+    setIsLoading(true);
     fetch("/api/score", { method: "GET" })
       .then((res) => res.json())
-      .then((scoresRes) => {
-        setScores(scoresRes);
-      });
+      .then((scoresRes) => setScores(scoresRes))
+      .finally(() => setIsLoading(false));
   }, [boardOn]);
 
   const addScoreToLeaderBoard = (player: string, score: number) => {
@@ -308,6 +310,11 @@ const Results: FC<ResultsProps> = ({ restart }) => {
             }}
           >
             <LeaderBoardTitle>leaderboard</LeaderBoardTitle>
+            {isLoading && (
+              <Spinner
+                spinnerStyle={{ top: "126px", left: "calc(48px + 4vw)" }}
+              />
+            )}
             <ul>
               {scores.map(({ id, player, score }, idx) => (
                 <ScoreLi key={id}>
