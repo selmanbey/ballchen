@@ -1,12 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "db";
-
-interface PostReq {
-  player: string;
-  score: number;
-}
-
-const postScore = async (data: PostReq) => await prisma.score.create({ data });
+import { Score } from "@prisma/client";
 
 const getScores = async () =>
   await prisma.score.findMany({
@@ -29,8 +23,10 @@ const score = async (req: NextApiRequest, res: NextApiResponse) => {
   // POST
   if (req.method === "POST") {
     try {
-      const { player, score }: PostReq = JSON.parse(req.body);
-      const result = await postScore({ player, score });
+      const { player, score }: Pick<Score, "player" | "score"> = JSON.parse(
+        req.body
+      );
+      const result = await prisma.score.create({ data: { player, score } });
       res.status(200).json(result);
     } catch (err) {
       console.error(err);

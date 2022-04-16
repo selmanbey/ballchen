@@ -5,19 +5,56 @@ import {
   useResetRecoilState,
   useSetRecoilState,
 } from "recoil";
-import { cloneDeep } from "lodash";
 import { windowBoundariesAtom } from "states/window";
 import { gameStateAtom } from "states/game";
 import { loopTimeAtom, scoreAtom } from "states/game";
-import { ballAtom, BallIds, ballIdsAtom } from "states/balls";
+import { ballAtom, ballIdsAtom } from "states/balls";
 import { useEffect } from "react";
+import { BallType, BallTrajectory, BallIds } from "types/ball";
+import { audioOnAtom } from "states/settings";
+import { playDeath, playFriendGain } from "utils/audio";
+import { WindowBoundaries } from "types/window";
+
+const getNewPosition = (
+  curPosition: { x: number; y: number },
+  curTrajectory: BallTrajectory,
+  windowBoundaries: WindowBoundaries
+) => {
+  const newPosition = { ...curPosition };
+  const newTrajectory = { ...curTrajectory };
+
+  if (
+    curPosition.y <= windowBoundaries.up ||
+    curPosition.y >= windowBoundaries.down
+  ) {
+    newTrajectory.upY = !curTrajectory.upY;
+  }
+
+  if (
+    curPosition.x <= windowBoundaries.left ||
+    curPosition.x >= windowBoundaries.right
+  ) {
+    newTrajectory.upX = !curTrajectory.upX;
+  }
+
+  newPosition.x = newTrajectory.upX
+    ? newPosition.x + newTrajectory.x
+    : newPosition.x - newTrajectory.x;
+  newPosition.y = newTrajectory.upY
+    ? newPosition.y + newTrajectory.y
+    : newPosition.y - newTrajectory.y;
+
+  return { newPosition, newTrajectory };
+};
 
 const useBall = (id: string) => {
+  const audioOn = useRecoilValue(audioOnAtom);
   const loopTime = useRecoilValue(loopTimeAtom);
-  const setScore = useSetRecoilState(scoreAtom);
-  const [gameState, setGameState] = useRecoilState(gameStateAtom);
   const windowBoundaries = useRecoilValue(windowBoundariesAtom);
 
+  const [gameState, setGameState] = useRecoilState(gameStateAtom);
+
+  const setScore = useSetRecoilState(scoreAtom);
   const setBallchenProps = useSetRecoilState(ballAtom(id));
   const deleteBallchen = useResetRecoilState(ballAtom(id));
   const deleteBallchenFromIds = useRecoilCallback(({ set }) => () => {
@@ -31,45 +68,35 @@ const useBall = (id: string) => {
     if (!setBallchenProps) return;
     if (gameState !== "IN_PLAY") return;
 
-    setBallchenProps((ballchenProps) => {
-      const newProps = cloneDeep(ballchenProps);
+    setBallchenProps(({ position, trajectory, ...rest }) => {
+      const { newPosition, newTrajectory } = getNewPosition(
+        position,
+        trajectory,
+        windowBoundaries
+      );
 
-      if (
-        ballchenProps.y <= windowBoundaries.up ||
-        ballchenProps.y >= windowBoundaries.down
-      ) {
-        newProps.trajectory.upY = !ballchenProps.trajectory.upY;
-      }
-
-      if (
-        ballchenProps.x <= windowBoundaries.left ||
-        ballchenProps.x >= windowBoundaries.right
-      ) {
-        newProps.trajectory.upX = !ballchenProps.trajectory.upX;
-      }
-
-      newProps.x = newProps.trajectory.upX
-        ? newProps.x + newProps.trajectory.x
-        : newProps.x - newProps.trajectory.x;
-      newProps.y = newProps.trajectory.upY
-        ? newProps.y + newProps.trajectory.y
-        : newProps.y - newProps.trajectory.y;
-
-      return newProps;
+      return { position: newPosition, trajectory: newTrajectory, ...rest };
     });
   }, [loopTime, setBallchenProps, windowBoundaries]);
 
-  const handleFriendContact = () => {
-    deleteBallchen();
-    deleteBallchenFromIds();
-    setScore((score) => score + 1);
+  const handleContact = (ballType: BallType) => {
+    if (gameState !== "IN_PLAY") return;
+    if (ballType === "friend") {
+      deleteBallchen();
+      deleteBallchenFromIds();
+      setScore((score) => score + 1);
+    }
+    if (ballType === "enemy") setGameState("READY_FOR_NEXT_GAME");
   };
 
-  const handleEnemyContact = () => {
-    setGameState("READY_FOR_NEXT_GAME");
+  const playAudio = (ballType: BallType) => {
+    if (!audioOn) return;
+    if (gameState !== "IN_PLAY") return;
+    if (ballType === "friend") playFriendGain();
+    if (ballType === "enemy") playDeath();
   };
 
-  return { handleFriendContact, handleEnemyContact };
+  return { handleContact, playAudio };
 };
 
 export default useBall;

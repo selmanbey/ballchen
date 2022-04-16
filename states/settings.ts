@@ -1,6 +1,6 @@
 import { atom } from "recoil";
 
-export const audioOnAtom = atom({
+export const audioOnAtom = atom<boolean>({
   key: "audioOnAtom",
   default: true,
 });

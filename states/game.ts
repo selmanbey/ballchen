@@ -1,9 +1,5 @@
 import { atom } from "recoil";
-
-export type GameState =
-  | "READY_FOR_FIRST_GAME"
-  | "IN_PLAY"
-  | "READY_FOR_NEXT_GAME";
+import { GameState } from "types/game";
 
 export const gameStateAtom = atom<GameState>({
   key: "gameStateAtom",
